@@ -77,6 +77,7 @@ impl error::Error for Error {
     fn description(&self) -> &str {
         match *self {
             Error::Custom(ref msg) => msg,
+            #[allow(deprecated)]
             Error::Utf8(ref err) => error::Error::description(err),
         }
     }
@@ -487,7 +488,7 @@ where
     ) -> Result<(), Error> {
         {
             let key = self.key.as_ref().ok_or_else(Error::no_key)?;
-            let value_sink = value::ValueSink::new(self.urlencoder, &key);
+            let value_sink = value::ValueSink::new(self.urlencoder, key);
             value.serialize(part::PartSerializer::new(value_sink))?;
         }
         self.key = None;
