@@ -59,4 +59,11 @@ where
     fn unsupported(self) -> Error {
         Error::Custom("unsupported value".into())
     }
+
+    fn serialize_seq_element_str(&mut self, value: &str) -> Result<(), Error> {
+        self.urlencoder
+            .append_pair(&format!("{}[]", self.key), value);
+
+        Ok(())
+    }
 }

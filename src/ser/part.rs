@@ -1,5 +1,8 @@
 use crate::ser::Error;
-use serde::ser;
+use serde::{
+    ser::{self, SerializeSeq, SerializeStruct},
+    Serializer,
+};
 use std::str;
 
 pub struct PartSerializer<S> {
@@ -29,13 +32,17 @@ pub trait Sink: Sized {
         value: &T,
     ) -> Result<Self::Ok, Error>;
 
+    fn serialize_seq_element_str(&mut self, _value: &str) -> Result<(), Error> {
+        Ok(())
+    }
+
     fn unsupported(self) -> Error;
 }
 
 impl<S: Sink> ser::Serializer for PartSerializer<S> {
     type Ok = S::Ok;
     type Error = Error;
-    type SerializeSeq = ser::Impossible<S::Ok, Error>;
+    type SerializeSeq = SeqSerializer<S>;
     type SerializeTuple = ser::Impossible<S::Ok, Error>;
     type SerializeTupleStruct = ser::Impossible<S::Ok, Error>;
     type SerializeTupleVariant = ser::Impossible<S::Ok, Error>;
@@ -161,7 +168,7 @@ impl<S: Sink> ser::Serializer for PartSerializer<S> {
         self,
         _len: Option<usize>,
     ) -> Result<Self::SerializeSeq, Error> {
-        Err(self.sink.unsupported())
+        Ok(SeqSerializer { inner: self })
     }
 
     fn serialize_tuple(
@@ -232,5 +239,49 @@ impl<S: Sink> PartSerializer<S> {
         let mut buf = ryu::Buffer::new();
         let part = buf.format(value);
         ser::Serializer::serialize_str(self, part)
+    }
+}
+
+pub struct SeqSerializer<S> {
+    inner: PartSerializer<S>,
+}
+
+impl<S: Sink> SerializeSeq for SeqSerializer<S>
+where
+    PartSerializer<S>: Serializer<Error = Error>,
+{
+    type Ok = S::Ok;
+
+    type Error = Error;
+
+    fn serialize_element<T: ?Sized>(
+        &mut self,
+        value: &T,
+    ) -> Result<(), Self::Error>
+    where
+        T: serde::Serialize,
+    {
+        struct Oops<T> {
+            value: T,
+        }
+        impl<T: serde::Serialize> serde::Serialize for Oops<T> {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: Serializer,
+            {
+                let mut s = serializer.serialize_struct("oops", 1)?;
+                s.serialize_field("value", &self.value)?;
+                s.end()
+            }
+        }
+
+        let s = crate::to_string(Oops { value })?;
+
+        self.inner.sink.serialize_seq_element_str(&s[6..])?;
+        Ok(())
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        self.inner.sink.serialize_none()
     }
 }

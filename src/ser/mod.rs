@@ -30,7 +30,7 @@ use std::str;
 pub fn to_string<T: ser::Serialize>(input: T) -> Result<String, Error> {
     let mut urlencoder = UrlEncodedSerializer::new("".to_owned());
     input.serialize(Serializer::new(&mut urlencoder))?;
-    Ok(urlencoder.finish())
+    Ok(urlencoder.finish().replace("%5B", "[").replace("%5D", "]"))
 }
 
 /// A serializer for the `application/x-www-form-urlencoded` format.

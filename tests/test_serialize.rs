@@ -102,3 +102,15 @@ fn serialize_unit_struct() {
 fn serialize_unit_type() {
     assert_eq!(serde_urlencoded::to_string(()), Ok("".to_owned()));
 }
+
+#[test]
+fn serialize_sequential() {
+    #[derive(Serialize)]
+    struct Foo {
+        bar: Vec<i32>,
+    }
+    assert_eq!(
+        serde_urlencoded::to_string(Foo { bar: vec![1, 2, 3] }),
+        Ok("bar[]=1&bar[]=2&bar[]=3".to_owned())
+    );
+}
